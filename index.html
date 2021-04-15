@@ -1,0 +1,157 @@
+<html>
+    <head>
+        <script src="./js/pdf.min.js"></script>
+    </head>
+    <body>
+        
+        <textarea id="text" hidden=true></textarea>
+        <input type="file" accept=".pdf" id="btnUpload"></button>
+        <button id="btnPlay">Play</button>Pages:<label id="page_count"></label>
+        <button id="btnPrev">Prev</button>
+        <button id="btnStop">Stop</button>
+        <button id="btnPause">Pause</button>
+        <button id="btnNext">Next</button>
+        
+        <select></select>
+        <span id="scratchPad"></span>
+        <script>
+            var pageNum = 1;
+            var pageCount = 0;
+            var speaking = false;
+            const synth = window.speechSynthesis;
+
+            pdfjsLib.GlobalWorkerOptions.workerSrc = './js/pdf.worker.min.js';
+            const input = document.querySelector('input');
+            const btnPlay = document.getElementById('btnPlay');
+            const btnStop = document.getElementById('btnStop');
+            const btnPause = document.getElementById('btnPause');
+            const btnPrev = document.getElementById('btnPrev');
+            const btnNext = document.getElementById('btnNext');
+            const voiceSelect = document.querySelector('select');
+            populateVoiceList();
+            input.addEventListener('change', loadFile);
+            btnPlay.addEventListener('click',playText);
+            btnStop.addEventListener('click',stop);
+            btnPause.addEventListener('click',pause);
+            btnNext.addEventListener('click',nextPage);
+            btnPrev.addEventListener('click',prevPage);
+            var pdfDoc;
+            
+            function loadFile(e){
+                //console.debug(e)
+                const selectedFile = document.getElementById('btnUpload').files[0];
+                console.debug(selectedFile)
+                
+                //Step 2: Read the file using file reader
+                let fileReader = new FileReader();  
+
+                fileReader.onload = function() {
+                    //Step 4:turn array buffer into typed array
+                    let data = new Uint8Array(this.result);
+                    pdfjsLib.getDocument({ data: data })
+                                    .promise.then((pdfDoc_) =>{
+                                        console.debug(pdfDoc_)
+                                        pdfDoc = pdfDoc_
+                                        pageCount = pdfDoc.numPages;
+                                        document.getElementById('page_count')
+                                        .textContent = pageCount;
+                                        // Initial/first page rendering
+                                        loadPage(pageNum);
+                                    });
+                }
+                fileReader.readAsArrayBuffer(selectedFile);
+            }
+        
+            function loadPage(n){
+                pdfDoc.getPage(n)
+                .then((page)=>{
+                    console.debug(page);
+                    page.getTextContent().then((textContent)=>{
+                        let txtEl = document.getElementById("text");
+                        let scratchPad = document.getElementById("scratchPad");
+                        console.debug(textContent);
+                        let txt = "";
+                        textContent.items.forEach(line=>{
+                            l = line.str.trim();
+                            if(l.length >= 3){
+                                txt+=l;
+                            }
+                        })
+                        scratchPad.innerHTML = txt;
+                        txt = scratchPad.textContent;
+                        txt=txt.replace(/[^a-zA-Z\s.,?]/g, '');
+                        txt=txt.replace(/\s\s+/g, ' ');
+                        let lines = txt.split('[,.?]');
+                        txtEl.innerText = lines.join('.\n');
+                    })
+                });   
+            }
+            function say(phrase){
+                let utterance = new SpeechSynthesisUtterance(phrase);
+                speechSynthesis.speak(utterance);
+            }
+            
+            function pause(){
+                if(speaking){
+                    synth.pause();
+                    speaking = false;
+                }else{
+                    synth.resume();
+                    speaking = true;
+                }
+            }
+            function stop(){
+                speechSynthesis.cancel()
+            }
+            function playText(e){
+                speaking = true;
+                let textEl = document.getElementById("text");
+                let txt = textEl.textContent;
+                let playList = txt.split(/[,.?]/);
+                playList.slice(0,playList.length - 12);
+                console.debug(playList);
+                playList.forEach((phrase,idx)=>{
+                    if(phrase.length >= 3){
+                        console.debug("Now playing... "+phrase);
+                        say(phrase);
+                    }
+                });
+                let phrase = "Press Next to Go To The Next Page."
+                let utterance = new SpeechSynthesisUtterance(phrase);
+                utterance.voice = "Google UK English Male";
+                speechSynthesis.speak(utterance);
+            }
+            function nextPage(){
+                stop();
+                loadPage(pageNum++);
+            }
+            function prevPage(){
+                stop();
+                loadPage(pageNum--);
+            }
+            function populateVoiceList() {
+                console.debug("Loading voices...")
+                voices = synth.getVoices().sort(function (a, b) {
+                        const aname = a.name.toUpperCase(), bname = b.name.toUpperCase();
+                        if ( aname < bname ) return -1;
+                        else if ( aname == bname ) return 0;
+                        else return +1;
+                });
+                console.debug(`There are ${voices.length} voices`);
+                for(let i = 0; i < voices.length ; i++) {
+                    let option = document.createElement('option');
+                    option.textContent = voices[i].name + ' (' + voices[i].lang + ')';
+                    console.debug(voices[i].name)
+                    if(voices[i].default) {
+                        option.textContent += ' -- DEFAULT';
+                    }
+
+                    option.setAttribute('data-lang', voices[i].lang);
+                    option.setAttribute('data-name', voices[i].name);
+                    voiceSelect.appendChild(option);
+                }
+                console.debug("Loading voices completed!");
+            }
+        </script>
+    </body>
+</html>
