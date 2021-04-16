@@ -35,8 +35,14 @@
             btnPause.addEventListener('click',pause);
             btnNext.addEventListener('click',nextPage);
             btnPrev.addEventListener('click',prevPage);
+            let playList = [];
             var pdfDoc;
             
+            function strip(html){
+                let doc = new DOMParser().parseFromString(html, 'text/html');
+                return doc.body.textContent || "";
+            }
+
             function loadFile(e){
                 //console.debug(e)
                 const selectedFile = document.getElementById('btnUpload').files[0];
@@ -49,16 +55,17 @@
                     //Step 4:turn array buffer into typed array
                     let data = new Uint8Array(this.result);
                     pdfjsLib.getDocument({ data: data })
-                                    .promise.then((pdfDoc_) =>{
-                                        console.debug(pdfDoc_)
-                                        pdfDoc = pdfDoc_
-                                        pageCount = pdfDoc.numPages;
-                                        document.getElementById('page_count')
-                                        .textContent = pageCount;
-                                        // Initial/first page rendering
-                                        loadPage(pageNum);
-                                    });
+                            .promise.then((pdfDoc_) =>{
+                                console.debug(pdfDoc_)
+                                pdfDoc = pdfDoc_
+                                pageCount = pdfDoc.numPages;
+                                document.getElementById('page_count')
+                                .textContent = pageCount;
+                                // Initial/first page rendering
+                                loadPage(pageNum);
+                            });
                 }
+                 
                 fileReader.readAsArrayBuffer(selectedFile);
             }
         
@@ -67,22 +74,31 @@
                 .then((page)=>{
                     console.debug(page);
                     page.getTextContent().then((textContent)=>{
+                        txt = "";
+                        textContent.items.forEach(line=>{
+                            //l = line.str.trim();
+                            //if(l.length > 1){
+                            txt+=line.str;
+                            //}
+                        });
+                        playList = strip(txt)
+                                    .replace(/-/g,'')
+                                        .split(/[,.!?;:]/);    
+
+                        /*
                         let txtEl = document.getElementById("text");
                         let scratchPad = document.getElementById("scratchPad");
                         console.debug(textContent);
                         let txt = "";
-                        textContent.items.forEach(line=>{
-                            l = line.str.trim();
-                            if(l.length >= 3){
-                                txt+=l;
-                            }
-                        })
+                        
                         scratchPad.innerHTML = txt;
                         txt = scratchPad.textContent;
-                        txt=txt.replace(/[^a-zA-Z\s.,?]/g, '');
-                        txt=txt.replace(/\s\s+/g, ' ');
-                        let lines = txt.split('[,.?]');
-                        txtEl.innerText = lines.join('.\n');
+                        //txt=txt.replace(/[^a-zA-Z\s.,?]/g, '');
+                        //txt=txt.replace(/\s\s+/g, ' ');
+                        //let lines =
+                        txtEl.innerText = txt;
+                        //txtEl.innerText = lines.join('.\n');
+                        */
                     })
                 });   
             }
@@ -105,20 +121,22 @@
             }
             function playText(e){
                 speaking = true;
+                /*
                 let textEl = document.getElementById("text");
                 let txt = textEl.textContent;
-                let playList = txt.split(/[,.?]/);
-                playList.slice(0,playList.length - 12);
+                let playList = txt.split(/[:;,.?]/);
+                //playList.slice(0,playList.length - 12);
+                */
                 console.debug(playList);
                 playList.forEach((phrase,idx)=>{
-                    if(phrase.length >= 3){
+                    if(phrase.length > 1){
                         console.debug("Now playing... "+phrase);
                         say(phrase);
                     }
                 });
                 let phrase = "Press Next to Go To The Next Page."
                 let utterance = new SpeechSynthesisUtterance(phrase);
-                utterance.voice = "Google UK English Male";
+                //utterance.voice = "Google UK English Male";
                 speechSynthesis.speak(utterance);
             }
             function nextPage(){
